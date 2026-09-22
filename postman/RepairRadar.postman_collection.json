@@ -1,0 +1,250 @@
+{
+  "info": {
+    "name": "RepairRadar",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "repairJobId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "programJobId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Import all streets",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/streets/import",
+        "description": "Imports every active level-8 street from GAR objects and administrative hierarchy, including streets without houses. City is always Москва. Stores full_address, locality and hierarchy_path to distinguish same-named streets. No body; no 1000-row limit. Existing GUIDs are refreshed when values change; unchanged rows are skipped. Returns inserted, updated and total."
+      }
+    },
+    {
+      "name": "Add up to 1000 new random addresses",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/addresses/import",
+        "description": "Reads local GAR XML, then atomically adds up to 1000 new addresses. Existing house GUIDs are skipped and stored rows stay unchanged. No request body. May take several minutes."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Import counters are consistent', function () { pm.response.to.have.status(200); const r = pm.response.json(); pm.expect(r.requested).to.eql(1000); pm.expect(r.imported).to.be.within(0, 1000); pm.expect(r.exhausted).to.eql(r.imported < r.requested); pm.expect(r.total).to.be.at.least(r.imported); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete all addresses",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/addresses",
+        "description": "Deletes every row in the address table."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Table cleared', function () { pm.response.to.have.status(204); pm.expect(pm.response.text()).to.eql(''); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Start capital repair import",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/repair-imports",
+        "description": "Returns 202 immediately. Samples up to 20 streets whose repair data was not loaded yet (streets with repair_data_loaded=true are skipped) and imports every page in the background. A street is marked as loaded only after all of its pages are fetched successfully, so failed streets are retried on the next run. Conflicting import/clear returns 409."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Accepted', function () { pm.response.to.have.status(202); });",
+              "if (pm.response.code === 202) { pm.collectionVariables.set('repairJobId', pm.response.json().jobId); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get capital repair import status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/repair-imports/{{repairJobId}}",
+        "description": "Task timestamps, state, selected streets, saved page/item counters and detailed errors."
+      }
+    },
+    {
+      "name": "Delete capital repair data and ALL job history",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/repair-imports",
+        "description": "Deletes all repair data, source pages and job history. Preserves streets and addresses, including the streets.repair_data_loaded flag: already loaded streets stay skipped by the next import. Returns 204, or 409 during an active import."
+      }
+    },
+    {
+      "name": "Start program import",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/program-imports",
+        "description": "Returns 202 immediately. Samples up to 50 repair houses whose program_name starts with \"Региональная\" and whose detail was not loaded yet, then GETs each /objects/rpkr/{houseGuid} with a 1–3 s delay. Raw payload and searchable work rows are stored; the house is marked loaded only after full success. Conflicting import/clear returns 409."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Accepted', function () { pm.response.to.have.status(202); });",
+              "if (pm.response.code === 202) { const jobId = pm.response.json().jobId; pm.collectionVariables.set('programJobId', jobId); pm.test('Location header points to the job', function () { pm.expect(pm.response.headers.get('Location')).to.eql('/api/program-imports/' + jobId); }); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get program import status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/program-imports/{{programJobId}}",
+        "description": "Selected houses, timestamps, success/failure counters, saved works and error details."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Job status is reported', function () { pm.response.to.have.status(200); const r = pm.response.json(); pm.expect(r.id).to.eql(pm.collectionVariables.get('programJobId')); pm.expect(['QUEUED','RUNNING','PARTIAL_FAILED','SUCCESS','FAILED','INTERRUPTED']).to.include(r.status); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete program data and ALL job history",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/program-imports",
+        "description": "Deletes program houses, works and job history. Keeps repair_houses.program_data_loaded flags, so loaded houses stay skipped by the next import. Returns 204, or 409 during an active import."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Program data cleared', function () { pm.response.to.have.status(204); pm.expect(pm.response.text()).to.eql(''); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get unique program work types",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/programs/work-types",
+        "description": "Возвращает уникальные названия capital_repair_work_type_name из program_works в алфавитном порядке. Параметры не нужны. NULL, пустые строки и строки из пробелов исключаются. При отсутствии данных возвращается []. Полученное название можно передать в workTypeName запроса поиска адресов."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Получен список уникальных непустых названий работ', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const names = pm.response.json();",
+              "    pm.expect(names).to.be.an('array');",
+              "    names.forEach(function (name) {",
+              "        pm.expect(name).to.be.a('string');",
+              "        pm.expect(name.trim()).to.not.eql('');",
+              "    });",
+              "    pm.expect(new Set(names).size).to.eql(names.length);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search programs by work type and period",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/programs/search?workTypeName=ремонт%20водостока&startDate=01.2030&endDate=12.2032",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "programs", "search"],
+          "query": [
+            {
+              "key": "workTypeName",
+              "value": "ремонт водостока"
+            },
+            {
+              "key": "startDate",
+              "value": "01.2030"
+            },
+            {
+              "key": "endDate",
+              "value": "12.2032"
+            }
+          ]
+        },
+        "description": "Возвращает уникальные адреса домов по подстроке названия работ без учёта регистра и пересечению периодов, включая границы. Названия видов работ доступны в GET /api/programs/work-types. Даты задаются в формате ММ.гггг. Все три параметра обязательны; некорректные или отсутствующие параметры возвращают 400 с кодом PROGRAM_SEARCH_INVALID."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) { pm.test('Search returns an address array', function () { pm.expect(pm.response.json()).to.be.an('array'); }); } else { pm.test('Invalid search input returns PROGRAM_SEARCH_INVALID', function () { pm.expect(pm.response.code).to.eql(400); pm.expect(pm.response.json().code).to.eql('PROGRAM_SEARCH_INVALID'); }); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get OpenAPI specification",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v3/api-docs",
+        "description": "Спецификация OpenAPI, включая получение уникальных видов работ и поиск адресов. Swagger UI доступен в браузере по адресу {{baseUrl}}/swagger-ui/index.html."
+      }
+    }
+  ]
+}

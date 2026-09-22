@@ -1,0 +1,29 @@
+{
+  "guid": "d088edca-32ed-4967-8620-70f8f583e195",
+  "houseGuid": "4a92f01d-8669-42f9-b5bd-b9aa9f2d7ddf",
+  "houseAddress": "125130, Москва г, ул. Клары Цеткин, д. 29, корп. 1",
+  "works": [
+    {
+      "guid": "e48e356c-07cf-417c-a07b-b74729761748",
+      "workNumber": 23858,
+      "startDate": "01.2030",
+      "endDate": "12.2032",
+      "workType": {
+        "guid": "62ca68cf-90b7-4ac4-893e-8c133aeccba9",
+        "code": "43",
+        "capitalRepairWorkTypeName": "ремонт или замена внутреннего водостока"
+      }
+    },
+    {
+      "guid": "bc38c03a-f8c5-4529-aa18-846f652d4033",
+      "workNumber": 23855,
+      "startDate": "01.2042",
+      "endDate": "12.2044",
+      "workType": {
+        "guid": "1e8682fa-f60a-47a4-b48b-6bd47150736c",
+        "code": "53",
+        "capitalRepairWorkTypeName": "Разработка и проведение экспертизы ПД"
+      }
+    }
+  ]
+}
