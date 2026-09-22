@@ -1,0 +1,27 @@
+# Артефакты сборки и тесты
+target
+test-results
+playwright-report
+coverage
+
+# Git и IDE
+.git
+.idea
+.vscode
+.opencode
+
+# Данные GAR (огромные XML) и окружение
+77
+.env
+.env.*
+*.log
+
+# Вспомогательные папки и файлы, не нужные для сборки jar
+docs
+postman
+lib
+frontend
+node_modules
+dist
+programs_response.json
+response.json

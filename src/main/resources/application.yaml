@@ -2,7 +2,7 @@ spring:
   application:
     name: RepairRadar
   datasource:
-    url: jdbc:postgresql://ep-divine-violet-b4yp9lb4-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+    url: ${DB_URL:jdbc:postgresql://ep-divine-violet-b4yp9lb4-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require}
     username: ${DB_USERNAME:neondb_owner}
     password: ${DB_PASSWORD:npg_Bs7xXyTdN2re}
   jpa:
